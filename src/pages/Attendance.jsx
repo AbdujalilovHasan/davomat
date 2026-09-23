@@ -16,11 +16,43 @@ function Attendance() {
   const [captainName, setCaptainName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const GOOGLE_SCRIPT_URL =
-    "https://script.google.com/macros/s/AKfycbxtaXr9b5K2mCslgO7uLe3LdqVZ4ri4wR0K_jL7ixILWcFWVTkRj3vM-VfaQfiq4oIWNg/exec";
+  const [toast, setToast] = useState({
+    show: false,
+    type: "",
+    message: "",
+  });
 
-  // Kelmagan o'quvchi qo'shish
+  const GOOGLE_SCRIPT_URL =
+    "https://script.google.com/macros/s/AKfycbzm9zVOhEYFZT1Z6QZ8Ys7bwAW3hoVhRpM1BMNCHvNocT_bcYIjDXpqTB0wzKzTclFQMg/exec";
+
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      type,
+      message,
+    });
+
+    setTimeout(() => {
+      setToast({
+        show: false,
+        type: "",
+        message: "",
+      });
+    }, 3500);
+  };
+
   const addAbsentStudent = () => {
+    const expectedAbsent =
+      Number(totalStudents || 0) - Number(presentStudents || 0);
+
+    if (expectedAbsent > 0 && absentStudents.length >= expectedAbsent) {
+      showToast(
+        `Ko'pi bilan ${expectedAbsent} ta kelmagan o'quvchi kiritish mumkin.`,
+        "error"
+      );
+      return;
+    }
+
     setAbsentStudents([
       ...absentStudents,
       {
@@ -31,14 +63,12 @@ function Attendance() {
     ]);
   };
 
-  // Kelmagan o'quvchini o'chirish
   const removeAbsentStudent = (id) => {
     setAbsentStudents(
       absentStudents.filter((student) => student.id !== id)
     );
   };
 
-  // O'quvchi ma'lumotini o'zgartirish
   const updateAbsentStudent = (id, field, value) => {
     setAbsentStudents(
       absentStudents.map((student) =>
@@ -49,49 +79,69 @@ function Attendance() {
     );
   };
 
-  // Davomatni yuborish
+  const total = Number(totalStudents || 0);
+  const present = Number(presentStudents || 0);
+  const absentCount =
+    total > 0 && present >= 0 && present <= total
+      ? total - present
+      : 0;
+
+  const enteredAbsentCount = absentStudents.filter(
+    (student) => student.fullName.trim()
+  ).length;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!className.trim()) {
-      alert("Iltimos, sinfni kiriting!");
+      showToast("Iltimos, sinfni kiriting!", "error");
       return;
     }
 
     if (!totalStudents) {
-      alert("Iltimos, jami o'quvchilar sonini kiriting!");
-      return;
-    }
-
-    if (!presentStudents) {
-      alert("Iltimos, kelganlar sonini kiriting!");
-      return;
-    }
-
-    if (!captainName.trim()) {
-      alert("Iltimos, sinf sardorini kiriting!");
-      return;
-    }
-
-    const total = Number(totalStudents);
-    const present = Number(presentStudents);
-    const absentCount = total - present;
-
-    if (total <= 0) {
-      alert("Jami o'quvchilar soni 0 dan katta bo'lishi kerak!");
-      return;
-    }
-
-    if (present < 0 || present > total) {
-      alert(
-        "Kelgan o'quvchilar soni jami o'quvchilar sonidan ko'p bo'lishi mumkin emas!"
+      showToast(
+        "Iltimos, jami o'quvchilar sonini kiriting!",
+        "error"
       );
       return;
     }
 
-    if (absentCount !== absentStudents.length) {
-      alert(
-        `Jami ${absentCount} ta o'quvchi kelmagan bo'lishi kerak. Hozir ${absentStudents.length} ta kiritilgan.`
+    if (!presentStudents) {
+      showToast(
+        "Iltimos, kelganlar sonini kiriting!",
+        "error"
+      );
+      return;
+    }
+
+    if (!captainName.trim()) {
+      showToast(
+        "Iltimos, sinf sardorini kiriting!",
+        "error"
+      );
+      return;
+    }
+
+    if (total <= 0) {
+      showToast(
+        "Jami o'quvchilar soni 0 dan katta bo'lishi kerak!",
+        "error"
+      );
+      return;
+    }
+
+    if (present < 0 || present > total) {
+      showToast(
+        "Kelganlar soni jami o'quvchilar sonidan ko'p bo'lishi mumkin emas!",
+        "error"
+      );
+      return;
+    }
+
+    if (enteredAbsentCount !== absentCount) {
+      showToast(
+        `Kelmaganlar soni ${absentCount} ta bo'lishi kerak. Hozir ${enteredAbsentCount} ta kiritilgan.`,
+        "error"
       );
       return;
     }
@@ -101,8 +151,9 @@ function Attendance() {
     );
 
     if (emptyStudent) {
-      alert(
-        "Kelmagan o'quvchilarning ism-familiyasini to'liq kiriting!"
+      showToast(
+        "Kelmagan o'quvchilarning ism-familiyasini to'liq kiriting!",
+        "error"
       );
       return;
     }
@@ -141,19 +192,21 @@ function Attendance() {
         console.error("JSON xatosi:", jsonError);
         console.error("Server javobi:", text);
 
-        alert(
-          "Google Sheets serveridan noto'g'ri javob keldi!"
+        showToast(
+          "Google Sheets serveridan noto'g'ri javob keldi!",
+          "error"
         );
 
         return;
       }
 
       if (result.success) {
-        alert(
-          "Davomat muvaffaqiyatli saqlandi!"
+        showToast(
+          "Davomat muvaffaqiyatli saqlandi!",
+          "success"
         );
 
-        // Formani tozalash
+        setClassName("");
         setTotalStudents("");
         setPresentStudents("");
 
@@ -167,9 +220,10 @@ function Attendance() {
 
         setCaptainName("");
       } else {
-        alert(
+        showToast(
           "Google Sheets xatosi: " +
-            (result.error || "Noma'lum xatolik")
+            (result.error || "Noma'lum xatolik"),
+          "error"
         );
 
         console.error(
@@ -180,8 +234,9 @@ function Attendance() {
     } catch (error) {
       console.error("Google Sheets xatosi:", error);
 
-      alert(
-        "Davomatni Google Sheets'ga yuborishda xatolik yuz berdi!"
+      showToast(
+        "Davomatni Google Sheets'ga yuborishda xatolik yuz berdi!",
+        "error"
       );
     } finally {
       setIsLoading(false);
@@ -190,9 +245,27 @@ function Attendance() {
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-8 md:px-8">
+
+      {toast.show && (
+        <div
+          className={`fixed right-5 top-5 z-50 flex max-w-sm items-center gap-3 rounded-2xl px-5 py-4 text-white shadow-2xl transition-all duration-300 ${
+            toast.type === "success"
+              ? "bg-emerald-600"
+              : "bg-red-600"
+          }`}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
+            {toast.type === "success" ? "✓" : "!"}
+          </div>
+
+          <p className="text-sm font-medium">
+            {toast.message}
+          </p>
+        </div>
+      )}
+
       <div className="mx-auto max-w-4xl">
 
-        {/* Header */}
         <div className="mb-6">
           <p className="text-sm font-semibold tracking-wide text-blue-600">
             DAVOMAT TIZIMI
@@ -209,11 +282,9 @@ function Attendance() {
 
         <form onSubmit={handleSubmit}>
 
-          {/* Sinf ma'lumotlari */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
 
             <div className="mb-5 flex items-center gap-3">
-
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-lg">
                 🏫
               </div>
@@ -227,12 +298,10 @@ function Attendance() {
                   Asosiy davomat ma'lumotlari
                 </p>
               </div>
-
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
 
-              {/* Sinf */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
                   Sinf
@@ -249,7 +318,6 @@ function Attendance() {
                 />
               </div>
 
-              {/* Jami */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
                   Jami o'quvchilar
@@ -257,7 +325,7 @@ function Attendance() {
 
                 <input
                   type="number"
-                  min="0"
+                  min="1"
                   value={totalStudents}
                   onChange={(e) =>
                     setTotalStudents(e.target.value)
@@ -267,7 +335,6 @@ function Attendance() {
                 />
               </div>
 
-              {/* Kelganlar */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
                   Kelganlar soni
@@ -286,9 +353,35 @@ function Attendance() {
               </div>
 
             </div>
+
+            {total > 0 && present >= 0 && present <= total && (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                  <p className="text-xs font-medium text-blue-600">
+                    Jami o'quvchilar
+                  </p>
+
+                  <p className="mt-1 text-xl font-bold text-blue-900">
+                    {total} ta
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                  <p className="text-xs font-medium text-red-600">
+                    Kelmagan o'quvchilar
+                  </p>
+
+                  <p className="mt-1 text-xl font-bold text-red-700">
+                    {absentCount} ta
+                  </p>
+                </div>
+
+              </div>
+            )}
+
           </div>
 
-          {/* Kelmaganlar */}
           <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
 
             <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -319,6 +412,43 @@ function Attendance() {
                 + O'quvchi qo'shish
               </button>
 
+            </div>
+
+            <div
+              className={`mb-5 rounded-xl border px-4 py-3 ${
+                enteredAbsentCount === absentCount &&
+                total > 0
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-amber-200 bg-amber-50"
+              }`}
+            >
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+
+                <span
+                  className={`text-sm font-semibold ${
+                    enteredAbsentCount === absentCount &&
+                    total > 0
+                      ? "text-emerald-700"
+                      : "text-amber-700"
+                  }`}
+                >
+                  Kelmagan o'quvchilar:{" "}
+                  <strong>{absentCount} ta</strong>
+                </span>
+
+                <span
+                  className={`text-sm ${
+                    enteredAbsentCount === absentCount &&
+                    total > 0
+                      ? "text-emerald-600"
+                      : "text-amber-600"
+                  }`}
+                >
+                  Kiritilgan:{" "}
+                  <strong>{enteredAbsentCount} ta</strong>
+                </span>
+
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -352,7 +482,6 @@ function Attendance() {
 
                   <div className="grid gap-3 md:grid-cols-2">
 
-                    {/* Ism familiya */}
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-700">
                         Ism-familiyasi
@@ -373,7 +502,6 @@ function Attendance() {
                       />
                     </div>
 
-                    {/* Sabab */}
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-700">
                         Kelmaganlik sababi
@@ -401,6 +529,10 @@ function Attendance() {
                         <option value="Sababsiz">
                           Sababsiz
                         </option>
+
+                        <option value="Uy ta'lim">
+                          Uy ta'lim
+                        </option>
                       </select>
                     </div>
 
@@ -410,9 +542,9 @@ function Attendance() {
               ))}
 
             </div>
+
           </div>
 
-          {/* Sardor */}
           <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
 
             <div className="mb-5 flex items-center gap-3">
@@ -449,7 +581,6 @@ function Attendance() {
 
           </div>
 
-          {/* Saqlash tugmasi */}
           <div className="mt-5 flex justify-end">
 
             <button
